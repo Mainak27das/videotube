@@ -1,8 +1,19 @@
 import express from "express";
+import { sendError, sendSuccess } from "./utils/response.util.js";
+import healthCheckroute from "./routes/healthcheck.routes.js";
+
 const app = express();
+
+// middleware
 app.use(express.json());
-app.get("/", (req, res) => {
-  res.send("Hello World yoo");
-});
+
+// health check route
+// app.get("/healthcheck", (req, res) => {
+//  return sendError(res, 500 , "Server is not working 🙌🙌");
+// });
+
+app.use("/", healthCheckroute);
+app.use("/user", healthCheckroute);
+app.use("/admin", healthCheckroute);
 
 export default app;
