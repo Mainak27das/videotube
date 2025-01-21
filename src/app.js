@@ -13,7 +13,7 @@ app.use(express.json());
 // });
 
 app.use("/", healthCheckroute);
-app.use("/user", healthCheckroute);
+app.use("/user", userRoute);
 app.use("/admin", healthCheckroute);
 
 export default app;
