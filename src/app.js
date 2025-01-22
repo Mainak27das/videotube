@@ -13,6 +13,7 @@ app.use(express.json());
 // });
 
 app.use("/", healthCheckroute);
+app.use("/api/v1/users", userRouter)
 app.use("/user", userRoute);
 app.use("/admin", healthCheckroute);
 
