@@ -1,9 +1,10 @@
-import { sendError,sendSuccess } from "../utils/response.util.js"
+import {apiSuccess } from "../utils/apiSuccess.js"
+
 const healthcheckConteroller= (req,res)=>{
-    // return sendSuccess(res,200,"healthchecked succesfully", {
-    //     "data": "OK"
-    // })
-    return sendError(res, 400, "Error in healthcheck")
+    return apiSuccess(res,200,"healthchecked succesfully", {
+        "data": "OK"
+    })
+    //  apiError(res, 400, "Error in healthcheck")
 }
 
 export default healthcheckConteroller;

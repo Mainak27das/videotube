@@ -3,5 +3,5 @@ import healthcheckConteroller from "../controllers/healthcheck.controller.js";
 
 const router= Router();
 
-router.route("/healthcheck").get(healthcheckConteroller);
+router.route("/").get(healthcheckConteroller);
 export default router;

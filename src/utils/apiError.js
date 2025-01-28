@@ -1,8 +1,8 @@
-const sendError = (res, statusCode, message) => {
+const apiError = (res, statusCode, message) => {
     return res.status(statusCode).send({
       success: false,
       message: message,
     });
   };
 
-  export default sendError;
+export {apiError}  
