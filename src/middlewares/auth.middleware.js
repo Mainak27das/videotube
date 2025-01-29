@@ -6,7 +6,11 @@ import { User } from "../models/user.models.js";
 const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     // Extract the token from the Authorization header
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const token =
+      req.cookies?.accessToken ||
+      req.header("Authorization")?.replace("Bearer ", "");
+
+    console.log(token);
 
     if (!token) {
       return apiError(res, 401, "Token not found");
@@ -22,7 +26,9 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
     console.log("User ID from token:", decodedToken._id);
 
     // Find the user associated with the token
-    const loggedInUser = await User.findById(decodedToken._id).select("-password -refreshToken");
+    const loggedInUser = await User.findById(decodedToken?._id).select(
+      "-password -refreshToken"
+    );
 
     if (!loggedInUser) {
       return apiError(res, 404, "User not found");
@@ -30,6 +36,7 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
 
     // Attach the user to the request object
     req.user = loggedInUser;
+    console.log(req.user)
 
     // Pass control to the next middleware or controller
     next();

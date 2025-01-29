@@ -148,7 +148,8 @@ const loginUser = asyncHandler(async (req, res) => {
   // Send response
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
+    .cookie("accessToken", accessToken, options)    // you are sending cookies here and setting the tokens in the cookies so they are also getting send in headers
+                                                    //so you dont need to send token in auth manually only do this when you are sending
     .cookie("refreshToken", refreshToken, options)
     .json({
       success: true,
@@ -186,6 +187,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   return apiSuccess(res, 200, "User logged out successfully");
 });
 
+
+//              {generate new refershtoken}
 const refreshAccessToken = asyncHandler(async (req, res) => {
   try {
     const incomingRefreshToken =
@@ -241,7 +244,7 @@ const updatePassword = asyncHandler(async (req, res) => {
     }
 
     // Find the user in the database
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user?._id);
     if (!user) {
       return apiError(res, 404, "User not found");
     }
@@ -272,4 +275,98 @@ const updatePassword = asyncHandler(async (req, res) => {
 });
 
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken,updatePassword};
+//       {get user profile}
+
+const  getUserProfile= asyncHandler(async(req,res)=>{
+    
+  try {
+    const loggedInuserProfile= req.user;
+    return apiSuccess(res, 200, "user detials fectched successfuly",loggedInuserProfile);
+  } catch (error) {
+    return apiError(res,404,"Unable to get user details")
+  }
+
+
+})
+
+
+//      {update user profile}
+
+const updateAccountDetails= asyncHandler(async(req,res)=>{
+   
+ try {
+   const {username,fullName,email}= req.body
+  //    req.user.username= username          //this is also an way of updating user details using pre save miidleware
+  //    req.user.fullName= fullName
+  //    req.user.email= email
+  //    await req.user.save({validateBeforeSave:false})
+
+
+     const updatedUser = await User.findByIdAndUpdate(
+      req.user?._id,
+      {
+          $set: {
+              fullName:fullName,
+              email: email,
+              username: username
+          }
+      },
+      {new: true}
+      
+  ).select("-password")
+
+     return apiSuccess(res, 200, "Account details updated successfully",updatedUser);
+ } catch (error) {
+     return apiError(res,404,"unable to update account details")
+ }
+   
+})
+
+//                 {update avatar image file}
+
+const updateAvatar= asyncHandler(async(req,res)=>{
+
+try {
+  const avatarLocalPath= req.file?.path
+  if(!avatarLocalPath){
+    return apiError(res,404,"image is not found on server")
+  }
+  
+   // Get the current user's avatar before updating
+  //  const user = await User.findById(req.user?._id);
+  //  const oldAvatarUrl = user.avatar;
+
+
+  const cloudinaryAvatarImage= await uploadOnCloudinary(avatarLocalPath)
+  if(!cloudinaryAvatarImage.url){
+    return apiError(res,400,"failed to upload on coludinary")
+  }
+  console.log(cloudinaryAvatarImage.url)
+  const updateAvatarUser=await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar:cloudinaryAvatarImage.url  
+    }
+    },
+    {new:true}
+  
+  ).select("-password")
+
+   // Delete old avatar from Cloudinary (if it exists)
+  //  if (oldAvatarUrl) {
+  //   const publicId = oldAvatarUrl.split("/").pop().split(".")[0]; // Extract public ID
+  //   await cloudinary.uploader.destroy(publicId);
+  // }
+
+  return apiSuccess(res, 200, "Account details updated successfully",updateAvatarUser);
+} catch (error) {
+  return apiError(res,404,"failed to update avatar")
+  
+}
+
+})
+
+
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken,updatePassword,getUserProfile,updateAccountDetails,updateAvatar};

@@ -4,7 +4,10 @@ import {
     logoutUser, 
     registerUser, 
     refreshAccessToken,
-    updatePassword
+    updatePassword,
+    getUserProfile,
+    updateAccountDetails,
+    updateAvatar
     
     
 } from "../controllers/user.controller.js";
@@ -34,6 +37,9 @@ router.route("/login").post(loginUser)
 router.route("/logout").post(verifyJWT,  logoutUser)
 router.route("/refresh-token").post(refreshAccessToken)
 router.route("/change-password").post(verifyJWT,updatePassword)
+router.route("/user-profile").get(verifyJWT,getUserProfile)
+router.route("/update-profile").post(verifyJWT,updateAccountDetails)
+router.route("/update-avatar").post(verifyJWT, upload.single("avatar"),updateAvatar)
 
 
 
