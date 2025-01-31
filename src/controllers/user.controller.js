@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiSuccess } from "../utils/apiSuccess.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import {sendOTP} from "../utils/sendOTP.js"
 
 
 //      create access and refresh tokens
@@ -105,64 +106,98 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 
+
+
+
+
+
 //               {user login}
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
 
-  // Validate input
   if (!username && !email) {
-    return apiError(res, 400, "Username or email is required");
+      return apiError(res, 400, "Username or email is required");
   }
 
-  // Find the user by email or username
   const user = await User.findOne({ $or: [{ username }, { email }] });
 
-  // If user not found
   if (!user) {
-    return apiError(res, 404, "User does not exist");
+      return apiError(res, 404, "User does not exist");
   }
 
-  // Check if the password is valid
   const isPasswordValid = await user.isPasswordCorrect(password);
   if (!isPasswordValid) {
-    return apiError(res, 401, "Invalid user credentials");
+      return apiError(res, 401, "Invalid user credentials");
   }
 
-  // Generate tokens
-  const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
-    user._id
-  );
+  // Generate OTP (6-digit number)
+  const otp = Math.floor(100000 + Math.random() * 900000);
 
-  // Fetch user details excluding sensitive fields
-  const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
+  // Store OTP in the database (with an expiration time)
+  user.otp = otp;
+  user.otpExpires = Date.now() + 10 * 60 * 1000; // OTP valid for 5 minutes
+  await user.save();
 
-  // Set secure cookies for tokens
-  const options = {
-    httpOnly: true,
-    secure: true,
-  };
+  // Send OTP via email (or SMS)
+  await sendOTP(user.email, otp);
 
-  // Send response
-  return res
-    .status(200)
-    .cookie("accessToken", accessToken, options)    // you are sending cookies here and setting the tokens in the cookies so they are also getting send in headers
-                                                    //so you dont need to send token in auth manually only do this when you are sending
-    .cookie("refreshToken", refreshToken, options)
-    .json({
-      success: true,
-      message: "User logged in successfully",
-      data: {
-        user: loggedInUser,
-        accessToken,
-        refreshToken,
-      },
-    });
+  return apiSuccess(res, 200, "OTP sent to your email. Please verify to proceed.");
 });
 
-//          {user logout}
+//    {verify otp}
+
+const verifyOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+      return apiError(res, 400, "Email and OTP are required");
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+      return apiError(res, 404, "User does not exist");
+  }
+   console.log(user.otp)
+  // Check if OTP matches and is not expired
+  if (user.otp !== otp || user.otpExpires < Date.now()) {
+      return apiError(res, 400, "Invalid or expired OTP");
+  }
+
+  // Clear OTP fields after successful verification
+  user.otp = null;
+  user.otpExpires = null;
+  await user.save();
+
+  // Generate tokens
+  const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(user._id);
+
+  // Fetch user details excluding sensitive fields
+  const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+  // Set cookies for tokens
+  const options = {
+      httpOnly: true,
+      secure: true,
+  };
+
+  return res.status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({
+          success: true,
+          message: "User logged in successfully",
+          data: {
+              user: loggedInUser,
+              accessToken,
+              refreshToken,
+          },
+      });
+});
+
+
+//          {user logout} sushavon098@gmail.com
 
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
@@ -367,6 +402,68 @@ try {
 
 })
 
+//            {get user channel details }
+const channelFullProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    return apiError(res, 404, "Channel username is not found");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: { username: username }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribersOfChannel" // Users that subscribed to this channel
+      }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo" // Channels or users this user is subscribed to
+      }
+    },
+    {
+      $addFields: {
+        subscribedToCount: { $size: "$subscribedTo" },
+        subscribersOfChannelCount: { $size: "$subscribersOfChannel" },
+        isSubscribed: {
+          $cond: {
+            if: {$in: [req.user?._id, "$subscribersOfChannel.subscriber"]},
+            then: true,
+            else: false
+        }
+        }
+      }
+    },
+    {
+      $project: {
+        username: 1,
+        subscribedToCount: 1,
+        subscribersOfChannelCount: 1,
+        email: 1,
+        avatar: 1,
+        coverImage: 1 // Ensure this field exists in the database
+      }
+    }
+  ]);
+
+  if (!channel.length) {
+    return apiError(res, 404, "Channel not found");
+  }
+
+  return apiSuccess(res, 200, "Channel data fetched successfully", channel[0]); // Return the first channel in the array 
+  //because aggeragte function returns an array of objects
+});
 
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken,updatePassword,getUserProfile,updateAccountDetails,updateAvatar};
+
+
+export { registerUser, loginUser,verifyOtp, logoutUser, refreshAccessToken,updatePassword,getUserProfile,updateAccountDetails,updateAvatar,channelFullProfile};

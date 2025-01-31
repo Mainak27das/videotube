@@ -44,7 +44,9 @@ const userSchema = new Schema(
         },
         refreshToken: {
             type: String
-        }
+        },
+        otp: String,
+    otpExpires: Date,
 
     },
     {
